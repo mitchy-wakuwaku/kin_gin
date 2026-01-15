@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>金のすし 銀のすし</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  margin: 0;
+  background: linear-gradient(#b7e3b1, #eaf6d8);
+  font-family: system-ui, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.emphasis {
+  font-weight: bold;
+  font-size: 1.25em;
+}
+
+#game {
+  width: 360px;
+  height: 640px;
+  position: relative;
+  background: #cfe8c9;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+#izumi {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ===== タイトル（縁取り） ===== */
+#title {
+  position: absolute;
+  top: 24px;
+  width: 100%;
+  text-align: center;
+  font-weight: bold;
+  text-shadow:
+    2px 2px 0 rgba(80, 120, 80, 0.6),
+   -2px 2px 0 rgba(80, 120, 80, 0.6),
+    2px -2px 0 rgba(80, 120, 80, 0.6),
+   -2px -2px 0 rgba(80, 120, 80, 0.6);
+}
+#title .big { font-size: 34px; }
+#title .mid {
+  font-size: 22px;
+  color: #f7f9f7;
+   }
+.gold { color: #f5c542; }
+.silver { color: #d8dde3; }
+
+/* ===== 女神 & 寿司 ===== */
+#megami {
+  position: absolute;
+  top: 140px;
+  left: 50%;
+  transform: translate(-50%, 40px);
+  width: 200px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#sushi {
+  position: absolute;
+  top: 260px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 160px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.float-in { animation: floatIn 1.2s ease-out forwards; }
+
+.fade-out-both {
+  animation: fadeOutBoth 2s ease-in forwards;
+}
+
+@keyframes floatIn {
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+@keyframes fadeOutBoth {
+  to {
+    transform: translate(-50%, 300px);
+    opacity: 0;
+  }
+}
+
+@keyframes bob {
+  0%   { transform: translateX(-50%) rotate(-18deg) translateY(0); }
+  100% { transform: translateX(-50%) rotate(-18deg) translateY(8px); }
+}
+
+#sushiStart {
+  position: absolute;
+  bottom: 380px;          /* 泉の位置に合わせて調整 */
+  left: 50%;
+  transform: translateX(-50%) rotate(-18deg);
+  width: 140px;
+  opacity: 0.95;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 6px rgba(0,0,0,0.25));
+  animation: bob 1.6s ease-in-out infinite alternate;
+}
+
+/* ===== UI ===== */
+#ui {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: rgba(255,255,255,0.96);
+  padding: 16px;
+}
+
+#text {
+  font-size: 15px;
+  line-height: 1.7;
+  white-space: pre-line;
+  min-height: 110px;
+}
+
+/* ===== ボタン ===== */
+#buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+button {
+  width: 100%;
+  max-width: 300px;   /* ★追加：はみ出し防止 */
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 15px;
+  border-radius: 20px;
+  border: none;
+  background: #e0e0e0;
+}
+
+button.primary {
+  background: #ffd966;
+}
+
+/* ===== END ===== */
+#end {
+  position: absolute;
+  top: 90px;
+  width: 100%;
+  text-align: center;
+  font-size: 28px;
+  font-weight: bold;
+  color: #fff;
+  display: none;
+}
+</style>
+</head>
+
+<body>
+<div id="game">
+  <img id="izumi" src="izumi.png">
+
+  <div id="title">
+    <span class="big gold">金</span><span class="mid">のすし</span>
+    <span class="big silver">銀</span><span class="mid">のすし</span>
+  </div>
+
+  <div id="end">── おしまい ──</div>
+
+  <img id="megami" src="megami.png">
+  <img id="sushi" src="sushi.png">
+  <img id="sushiStart" src="sushi.png">
+
+  <div id="ui">
+    <div id="text"></div>
+    <div id="buttons"></div>
+  </div>
+</div>
+
+<audio id="megamiSound" src="megami_1.mp3"></audio>
+<audio id="shockSound" src="shock.mp3"></audio>
+<audio id="megami2Sound" src="megami_2.mp3"></audio>
+<audio id="pafuSound" src="pafu.mp3"></audio>
+<audio id="kanSound" src="kan.mp3"></audio>
+
+<script>
+const text = document.getElementById("text");
+const buttons = document.getElementById("buttons");
+const megami = document.getElementById("megami");
+const sushi = document.getElementById("sushi");
+const title = document.getElementById("title");
+const endEl = document.getElementById("end");
+const sushiStart = document.getElementById("sushiStart");
+
+const megamiSound = document.getElementById("megamiSound");
+const shockSound = document.getElementById("shockSound");
+const megami2Sound = document.getElementById("megami2Sound");
+const pafuSound = document.getElementById("pafuSound");
+const kanSound = document.getElementById("kanSound");
+
+megamiSound.volume  = 0.1; // 登場（やや控えめ）
+shockSound.volume   = 0.1; // ！？は少し大きく
+megami2Sound.volume = 0.1; // フェードアウト
+pafuSound.volume    = 0.1; // 銀のさらオチ
+kanSound.volume = 0.1; // カーン
+
+function click(){
+  const se = new Audio("click.mp3");
+  se.volume = 0.1;
+  se.play();
+}
+
+function play(sound){
+  sound.pause();        // ← これ重要
+  sound.currentTime = 0;
+  sound.play();
+}
+
+function resetScene(){
+  buttons.innerHTML = "";
+  endEl.style.display = "none";
+}
+
+function showScene(message, btns=[]){
+  resetScene();
+  text.innerHTML = message;   // ★ここを変更
+  btns.forEach(b=>{
+    const btn = document.createElement("button");
+    btn.textContent = b.label;
+    if(b.primary) btn.classList.add("primary");
+    btn.onclick = ()=>{ click(); b.onClick(); };
+    buttons.appendChild(btn);
+  });
+}
+
+function endScene(){
+  endEl.style.display = "block";
+}
+
+/* ===== 流れ ===== */
+
+function start(){
+  title.style.display = "block";
+  
+  sushiStart.style.display = "block";
+
+  megami.className = "";
+  sushi.className = "";
+  megami.style.opacity = 0;
+  sushi.style.opacity = 0;
+
+  showScene(
+`手をすべらせて
+大切なお寿司を
+泉に落としてしまった…！`,
+[{ label:"のぞきこむ", primary:true, onClick:intro }]
+);
+}
+
+function intro(){
+  title.style.display = "none";
+  sushiStart.style.display = "none";
+  
+  megami.classList.add("float-in");
+  play(megamiSound);
+
+  showScene(
+`泉の中から
+女神が現れた。`,
+[{ label:"つづける", primary:true, onClick:question }]
+);
+}
+
+function question(){
+  showScene(
+`女神「あなたが落としたのは
+　　　金のすしですか？
+　　　それとも銀のすしですか？」`,
+[{ label:"答える", primary:true, onClick:choice }]
+);
+}
+
+function choice(){
+  showScene(
+"どれを選びますか？",
+[
+  { label:"🥇 金のすし", onClick:gold },
+  { label:"🥈 銀のすし", onClick:silver },
+  { label:"🍣 普通のすし", onClick:normal }
+]
+);
+}
+
+/* ===== ルート ===== */
+
+function normal(){
+  showScene(
+`女神「あなたは正直ものですね。
+　　　それではこの『金のすし』と
+　　 『銀のすし』をあげましょう」`,
+[{ label:"……", primary:true, onClick:()=>{
+
+  play(kanSound); // ← ここでカーン！
+  
+  showScene(
+`男「……
+　　いや、『普通のすし』食べたいよ！」`,
+[{ label:"もう一度", primary:true, onClick:start }]
+);
+  endScene();
+}}]);
+}
+
+function gold(){
+  showScene(
+`女神「あなたはウソつきですね。
+　　　この『すし』は没収です」`,
+[{ label:"……", primary:true, onClick:()=>{
+
+  play(kanSound); // ← 追加！ここでカーン
+
+  showScene(
+`男「オーノー！」`,
+[{ label:"もう一度", primary:true, onClick:start }]
+);
+  endScene();
+}}]);
+}
+
+function silver(){
+  showScene(
+`女神「あなたはウソつきですね。
+　　　この『すし』は没収です」`,
+[{ label:"ちがいます！", primary:true, onClick:silver2 }]
+);
+}
+
+function silver2(){
+  showScene(
+`男「いえ！ウソではありません。」`,
+[{ label:"……", primary:true, onClick:silverShock }]
+);
+}
+
+function silverShock(){
+  play(shockSound);
+  showScene(
+`女神「<span class="emphasis">！？</span>」`,
+[{ label:"説明する", primary:true, onClick:silverExplain }]
+);
+}
+
+function silverExplain(){
+  showScene(
+`男「だって僕が落としたのは……
+　 『<span class="emphasis">銀のさら</span>』のおすしなんだから！」`,
+[{ label:"……", primary:true, onClick:silverPraise }]
+);
+}
+
+function silverPraise(){
+  showScene(
+`女神「…………
+　　　あなたは素晴らしい正直ものですね。」`,
+[{ label:"……", primary:true, onClick:silverFinal }]
+);
+}
+
+function silverFinal(){
+  play(megami2Sound);
+
+  megami.style.opacity = 1;
+  sushi.style.opacity = 1;
+
+  megami.classList.add("fade-out-both");
+  sushi.classList.add("fade-out-both");
+
+  setTimeout(()=>{
+    play(pafuSound);
+  }, 2000);
+
+  showScene(
+`女神「では、この
+　　 『銀のさらの美味しいお寿司』は
+　　　私がいただきますね😋」
+
+男「って、おいっ！🫱💥」`,
+[{ label:"もう一度", primary:true, onClick:start }]
+);
+
+  endScene();
+}
+
+start();
+</script>
+</body>
+</html>
